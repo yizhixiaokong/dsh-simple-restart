@@ -2,13 +2,14 @@
 
 English | [中文](README.zh.md)
 
+[![DSH](https://img.shields.io/badge/DeepSeek-Harness-blue)](https://github.com/deepseek-ai/deepseek-harness)
 [![CI](https://github.com/yizhixiaokong/dsh-simple-restart/actions/workflows/ci.yml/badge.svg)](https://github.com/yizhixiaokong/dsh-simple-restart/actions/workflows/ci.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![dsh-plugin](https://img.shields.io/badge/dsh--plugin-installable-2ea44f)](https://github.com/topics/dsh-plugin)
 
-A [DeepSeek Harness](https://github.com/deepseek-ai/dsh) plugin that adds one
-row to **Settings → General**: a button that restarts the running `dsh web`
-process with the same invocation it was started with.
+A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin
+that adds one row to **Settings → General**: a button that restarts the running
+`dsh web` process with the same invocation it was started with.
 
 It exists because a plugin change to a client bundle only takes effect after the
 host restarts, and doing that from a terminal means finding the terminal again.

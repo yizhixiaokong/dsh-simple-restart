@@ -2,11 +2,12 @@
 
 [English](README.md) | 中文
 
+[![DSH](https://img.shields.io/badge/DeepSeek-Harness-blue)](https://github.com/deepseek-ai/deepseek-harness)
 [![CI](https://github.com/yizhixiaokong/dsh-simple-restart/actions/workflows/ci.yml/badge.svg)](https://github.com/yizhixiaokong/dsh-simple-restart/actions/workflows/ci.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![dsh-plugin](https://img.shields.io/badge/dsh--plugin-installable-2ea44f)](https://github.com/topics/dsh-plugin)
 
-一个 [DeepSeek Harness](https://github.com/deepseek-ai/dsh) 插件：在
+一个 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 插件：在
 **设置 → 通用**里增加一行——一个用与启动时相同的调用方式重启当前 `dsh web`
 进程的按钮。
 
