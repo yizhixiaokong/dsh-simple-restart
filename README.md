@@ -240,6 +240,22 @@ Owner steps:
      zh: '在「设置 → 通用」增加一行重启按钮：用相同启动参数、经分离的 helper 重新拉起 dsh web；检测到 systemd 监管时默认拒绝（除非 allowRestart 为 true）；判断端口是否空闲用连接探测而非绑定。'
    ```
 
+The storefront reads a `screenshots.json` next to `package.json` for its
+screenshot strip; this repository declares `assets/01-settings-row.png` and
+`assets/02-confirm.png`, in that order.
+
+### Publishing to npm
+
+```sh
+npm login --registry=https://registry.npmjs.org   # a mirror accepts neither a login nor a publish
+npm publish --registry=https://registry.npmjs.org
+```
+
+`npm publish --dry-run` prints the tarball contents without uploading anything,
+and `prepublishOnly` runs `npm test` before either. The published package's
+`repository` field points back here; that is what lets the plugin list link the
+two and then offer the registry install form instead of the GitHub one.
+
 ## License
 
 [MIT](LICENSE)

@@ -212,6 +212,20 @@ npm test          # node scripts/smoke.mjs
      zh: '在「设置 → 通用」增加一行重启按钮：用相同启动参数、经分离的 helper 重新拉起 dsh web；检测到 systemd 监管时默认拒绝（除非 allowRestart 为 true）；判断端口是否空闲用连接探测而非绑定。'
    ```
 
+市场详情页的截图条读取与 `package.json` 并列的 `screenshots.json`；本仓库声明的是
+`assets/01-settings-row.png` 与 `assets/02-confirm.png`，按此顺序展示。
+
+### 发布到 npm
+
+```sh
+npm login --registry=https://registry.npmjs.org   # 镜像既不能登录，也不能发布
+npm publish --registry=https://registry.npmjs.org
+```
+
+`npm publish --dry-run` 只打印将要上传的内容而不上传；`prepublishOnly` 会先跑一遍
+`npm test`。已发布包的 `repository` 字段指回本仓库——列表据此把 npm 包与条目关联，
+随后展示的就是更短的 `dsh plugin --profile web add dsh-simple-restart`，而不是 GitHub 形式。
+
 ## 许可证
 
 [MIT](LICENSE)
