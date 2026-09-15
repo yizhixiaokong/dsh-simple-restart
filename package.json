@@ -1,0 +1,68 @@
+{
+  "name": "dsh-simple-restart",
+  "version": "0.1.0",
+  "description": "DeepSeek Harness plugin: restart the running `dsh web` process from a General settings row, without the market plugin.",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "restart",
+    "settings"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yizhixiaokong/dsh-simple-restart.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yizhixiaokong/dsh-simple-restart/issues"
+  },
+  "homepage": "https://github.com/yizhixiaokong/dsh-simple-restart#readme",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "scripts",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.2"
+  },
+  "scripts": {
+    "test": "node scripts/smoke.mjs",
+    "prepublishOnly": "npm test"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings"
+      ],
+      "platform": "web"
+    },
+    "compatibility": {
+      "dsh": ">=0.1.5-rc.1",
+      "dshReleases": {
+        "0.1.5-rc.1": "compatible"
+      }
+    }
+  }
+}
