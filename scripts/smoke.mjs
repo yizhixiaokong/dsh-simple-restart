@@ -157,6 +157,34 @@ check('client bundle applies and fills its settings row', () => {
 })
 
 /* ------------------------------------------------------------------ *
+ * 2b. README badges are well formed.
+ *
+ * A shields.io static badge is `label-message-color`, and a literal dash
+ * inside a part has to be doubled. Getting that wrong does not fail loudly:
+ * the service answers HTTP 200 with an SVG that reads "404: badge not found",
+ * which a status-only check never sees. Park the escaped dashes before
+ * splitting so `dsh--plugin` counts as one part.
+ * ------------------------------------------------------------------ */
+check('README badges are well-formed', () => {
+	for (const file of ['README.md', 'README.zh.md']) {
+		const urls = read(file).match(/https:\/\/img\.shields\.io\/badge\/[^)\s"']+/g) ?? []
+		assert.ok(urls.length > 0, file + ' has no shields.io badge — did the badge markup change?')
+		for (const url of urls) {
+			const path = url.replace('https://img.shields.io/badge/', '').replace(/\.svg$/, '')
+			const parts = path.replaceAll('--', '\u0000').split('-')
+			assert.equal(
+				parts.length,
+				3,
+				file + ': ' + url + ' splits into ' + parts.length + ' parts, not label-message-color — a dash inside a part must be doubled (dsh--plugin)',
+			)
+			for (const part of parts) {
+				assert.ok(part.length > 0, file + ': ' + url + ' has an empty part')
+			}
+		}
+	}
+})
+
+/* ------------------------------------------------------------------ *
  * 3. The host half registers its route — and both halves agree on the path.
  * ------------------------------------------------------------------ */
 const host = await import(pathToFileURL(join(root, 'lib/index.js')).href)
