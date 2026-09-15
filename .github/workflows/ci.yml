@@ -1,0 +1,25 @@
+name: CI
+
+# The package has no runtime dependencies and ships its own hand-written client
+# bundle, so there is nothing to install and nothing to build: CI is the offline
+# smoke test, on every supported Node line.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["20", "22", "24"]
+    name: node ${{ matrix.node }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm test
