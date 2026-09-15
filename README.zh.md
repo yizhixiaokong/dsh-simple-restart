@@ -47,19 +47,31 @@
 
 ## 安装
 
+直接从 GitHub 安装——不必克隆（想固定版本就钉一个 tag）：
+
+```sh
+dsh plugin --profile web add "github:yizhixiaokong/dsh-simple-restart"
+# 钉版本：dsh plugin --profile web add "github:yizhixiaokong/dsh-simple-restart#v0.1.0"
+```
+
+从克隆安装（需要改代码时）：
+
 ```sh
 git clone https://github.com/yizhixiaokong/dsh-simple-restart.git
 cd dsh-simple-restart
 dsh plugin --profile web add "$PWD"
 ```
 
-从 npm：
+从 npm 安装（发布之后）：
 
 ```sh
 dsh plugin --profile web add dsh-simple-restart
 ```
 
-本包的 [`cordis.patch.yml`](cordis.patch.yml) 贡献它所需要的那一行宿主配置。
+三种方式结果一致，也都不需要手工登记：`dsh plugin` 先跑 pnpm，再读取每个已安装依赖的
+`package.json`——声明了 `dsh.bundle` 的包，其名字会被追加进
+`dsh.profile.bundles`，由它挂载旁边的 [`cordis.patch.yml`](cordis.patch.yml)。
+
 **随后请先从终端重启一次 `dsh web`**——客户端产物在启动时完成基线化，所以按钮要到
 下一次启动后才会出现。此后这个按钮就能代劳了。
 
