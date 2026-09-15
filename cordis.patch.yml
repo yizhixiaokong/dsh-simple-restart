@@ -1,12 +1,16 @@
 # dsh-simple-restart bundle patch: the host row this plugin mounts.
 #
-# The row name resolves from the profile's own node_modules, where either
+# The row name resolves from the profile's own node_modules, where one of
 #
-#   dsh plugin --profile web add dsh-simple-restart            # from npm
-#   dsh plugin --profile web add /path/to/dsh-simple-restart   # from a clone
+#   dsh plugin --profile web add "github:yizhixiaokong/dsh-simple-restart"
+#   dsh plugin --profile web add "github:yizhixiaokong/dsh-simple-restart#v0.1.0"   # pinned to a tag
+#   dsh plugin --profile web add dsh-simple-restart   # from npm, once published
+#   dsh plugin --profile web add /path/to/dsh-simple-restart   # from a local clone
 #
 # has linked it. Listing this package in `dsh.profile.bundles` applies exactly
-# this patch at boot. Do not also insert the same row by hand in the profile's
+# this patch at boot. `dsh plugin add` does that by itself: it reads the
+# installed package manifest and appends the name when `dsh.bundle` is
+# declared. Do not also insert the same row by hand in the profile's
 # cordis.patch.yml: one row, one mount, otherwise boot fails with a duplicate
 # loader entry id.
 - insert:

@@ -54,22 +54,36 @@ would itself hold the port at the exact moment the replacement needs it.
 
 ## Install
 
+Straight from GitHub — nothing to clone (pin a tag if you want a fixed release):
+
+```sh
+dsh plugin --profile web add "github:yizhixiaokong/dsh-simple-restart"
+# pinned: dsh plugin --profile web add "github:yizhixiaokong/dsh-simple-restart#v0.1.0"
+```
+
+From a clone, when you want to edit the code:
+
 ```sh
 git clone https://github.com/yizhixiaokong/dsh-simple-restart.git
 cd dsh-simple-restart
 dsh plugin --profile web add "$PWD"
 ```
 
-From npm:
+From npm, once it is published:
 
 ```sh
 dsh plugin --profile web add dsh-simple-restart
 ```
 
-The package's [`cordis.patch.yml`](cordis.patch.yml) contributes the one host
-row it needs. **Now restart `dsh web` once from a terminal** — the client bundle
-is baselined at boot, so the button appears only after the next start. After
-that, the button can do it.
+All three end the same way, and none of them needs a manual registration step:
+`dsh plugin` runs pnpm, then reads each installed dependency's
+`package.json`; a package that declares `dsh.bundle` has its name appended to
+`dsh.profile.bundles`, which is what mounts the
+[`cordis.patch.yml`](cordis.patch.yml) beside it.
+
+**Now restart `dsh web` once from a terminal** — the client bundle is baselined
+at boot, so the button appears only after the next start. After that, the
+button can do it.
 
 To remove it:
 
