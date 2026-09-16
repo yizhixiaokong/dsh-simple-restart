@@ -14,6 +14,16 @@
 它存在的原因是：客户端产物的插件改动只有宿主重启后才生效，而从终端做这件事意味着
 要重新找到那个终端。本包拥有自己的路由与重启逻辑，不依赖任何其他插件。
 
+## 截图
+
+「设置 → 通用」里的那一行。
+
+![设置页通用分区中的重启行](https://raw.githubusercontent.com/yizhixiaokong/dsh-simple-restart/HEAD/assets/01-settings-row.png)
+
+5 秒内第二次点击确认；提示行随后显示正在让位的宿主 pid 与 helper 的 pid。
+
+![同一行进入确认态](https://raw.githubusercontent.com/yizhixiaokong/dsh-simple-restart/HEAD/assets/02-confirm.png)
+
 ## 它做什么
 
 1. 该行向本包自己的宿主路由请求重启（第二次点击确认；已武装状态 5 秒后过期）。

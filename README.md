@@ -16,6 +16,17 @@ host restarts, and doing that from a terminal means finding the terminal again.
 This package owns its own route and its own restart logic — no other plugin is
 involved.
 
+## Screenshots
+
+The row in Settings → General.
+
+![The restart row in Settings, General](https://raw.githubusercontent.com/yizhixiaokong/dsh-simple-restart/HEAD/assets/01-settings-row.png)
+
+A second click within 5s confirms; the hint line then reports the host pid
+stepping aside and the helper's pid.
+
+![The same row armed as a confirmation](https://raw.githubusercontent.com/yizhixiaokong/dsh-simple-restart/HEAD/assets/02-confirm.png)
+
 ## What it does
 
 1. The row asks this package's own host route for a restart (a second click
