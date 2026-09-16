@@ -62,7 +62,7 @@ cd dsh-simple-restart
 dsh plugin --profile web add "$PWD"
 ```
 
-从 npm 安装（发布之后）：
+从 npm 安装：
 
 ```sh
 dsh plugin --profile web add dsh-simple-restart

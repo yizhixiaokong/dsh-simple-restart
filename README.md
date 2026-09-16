@@ -69,7 +69,7 @@ cd dsh-simple-restart
 dsh plugin --profile web add "$PWD"
 ```
 
-From npm, once it is published:
+From npm:
 
 ```sh
 dsh plugin --profile web add dsh-simple-restart
