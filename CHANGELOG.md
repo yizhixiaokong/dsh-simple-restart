@@ -4,6 +4,17 @@ All notable changes to this package are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] — 2026-09-28
+
+### Changed
+
+- The host requirement is now declared where the plugin market reads it:
+  `engines.dsh: ">=0.1.5-rc.1"` plus `@deepseek-ai/dsh*` peers for the packages
+  this plugin uses (`dsh-client-ui-settings`, which its card seats into, and
+  `dsh-host-webserver`, which serves its route). The market's compatibility
+  popover lists one line per declaration, so the entry now shows the concrete
+  requirement instead of "undeclared".
+
 ## [0.1.0] — 2026-09-15
 
 ### Added

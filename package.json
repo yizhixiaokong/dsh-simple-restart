@@ -1,6 +1,6 @@
 {
   "name": "dsh-simple-restart",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "DeepSeek Harness plugin: restart the running `dsh web` process from a General settings row, without the market plugin.",
   "keywords": [
     "dsh",
@@ -39,10 +39,13 @@
     "LICENSE"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=20",
+    "dsh": ">=0.1.5-rc.1"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "^4.0.2"
+    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/dsh-client-ui-settings": ">=0.1.5-rc.1",
+    "@deepseek-ai/dsh-host-webserver": ">=0.1.5-rc.1"
   },
   "scripts": {
     "test": "node scripts/smoke.mjs",

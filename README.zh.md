@@ -61,7 +61,7 @@
 
 ```sh
 dsh plugin --profile web add "github:yizhixiaokong/dsh-simple-restart"
-# 钉版本：dsh plugin --profile web add "github:yizhixiaokong/dsh-simple-restart#v0.1.0"
+# 钉版本：dsh plugin --profile web add "github:yizhixiaokong/dsh-simple-restart#v0.1.1"
 ```
 
 从克隆安装（需要改代码时）：
@@ -177,7 +177,7 @@ npm test          # node scripts/smoke.mjs
 
 ## 仓库说明
 
-版本 tag 与 `package.json` 保持一致——当前这棵树是 `v0.1.0`。
+版本 tag 与 `package.json` 保持一致——当前这棵树是 `v0.1.1`。
 
 `package.json`、`CHANGELOG.md`、徽章以及上文安装命令中的 `yizhixiaokong` 占位符代表本仓库
 将要推送到的 GitHub 账号，发布前请替换。本仓库的提交使用中性的

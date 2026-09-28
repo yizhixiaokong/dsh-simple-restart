@@ -69,7 +69,7 @@ Straight from GitHub — nothing to clone (pin a tag if you want a fixed release
 
 ```sh
 dsh plugin --profile web add "github:yizhixiaokong/dsh-simple-restart"
-# pinned: dsh plugin --profile web add "github:yizhixiaokong/dsh-simple-restart#v0.1.0"
+# pinned: dsh plugin --profile web add "github:yizhixiaokong/dsh-simple-restart#v0.1.1"
 ```
 
 From a clone, when you want to edit the code:
@@ -198,7 +198,7 @@ empty.
 
 ## Repository notes
 
-Versions are tagged to match `package.json` — this tree is `v0.1.0`.
+Versions are tagged to match `package.json` — this tree is `v0.1.1`.
 
 The `yizhixiaokong` placeholder in `package.json`, `CHANGELOG.md`, the badges and the
 install commands above stands for the GitHub account this repository is pushed
