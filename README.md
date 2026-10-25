@@ -31,12 +31,17 @@ stepping aside and the helper's pid.
 
 1. The row asks this package's own host route for a restart (a second click
    confirms; the armed state expires after 5s).
-2. The host checks its own safety rules, then spawns a **detached helper** and
-   hands it the exact boot invocation — executable, argv, working directory.
-3. The helper waits until the listening port is free, starts the replacement,
-   and then watches for up to 20s to confirm it bound the port.
-4. The host exits 500ms after the handoff. The browser page disconnects briefly
-   and reconnects when the new process is up.
+2. The host checks its own safety rules, and picks one of two ways to restart.
+3. **A unit that restarts on any exit** (`Restart=always`): the restart *is* the
+   exit. The host answers `202`, waits `selfExitDelayMs`, and signals itself;
+   the unit starts the replacement. Nothing is spawned detached, so
+   `KillMode=control-group` has nothing to kill and no privileges are involved.
+4. **Otherwise**, the host spawns a **detached helper** and hands it the exact
+   boot invocation — executable, argv, working directory. The helper waits until
+   the listening port is free, starts the replacement, and watches for up to 20s
+   to confirm it bound the port. The host exits 500ms after the handoff.
+5. Either way the browser page disconnects briefly and reconnects when the new
+   process is up.
 
 If anything goes wrong after the handoff, the helper writes a diagnosis to
 `$TMPDIR/dsh-simple-restart-<timestamp>.err.log` (the replacement's own stdout/stderr
@@ -60,7 +65,7 @@ would itself hold the port at the exact moment the replacement needs it.
 | --- | --- |
 | DSH, web profile | The route is served by `webServer`; the settings row is a client-half slot. |
 | Same-origin loopback caller | The route refuses anything else (see below). |
-| Not supervised by systemd — or `allowRestart: true` | systemd's default `KillMode=control-group` kills the helper together with the unit, so a restart there would leave nothing running. |
+| Not supervised by systemd — or the unit restarts on any exit — or `allowRestart: true` | Under systemd's default `KillMode=control-group` a detached helper dies with the unit, so a restart there would leave nothing running. Two supervised shapes still work: a unit with `Restart=always`, where the restart becomes the exit itself, and an explicit `allowRestart: true` for a unit configured to survive the helper (`KillMode=process`). |
 | Not under a debugger | A debugger attached to this process cannot follow it across an `exec`-less restart. |
 
 ## Install
@@ -121,12 +126,16 @@ The row's config is passed to the host `apply`:
     - id: simple-restart
       name: dsh-simple-restart
       config:
-        allowRestart: true   # restart even when a systemd supervisor is detected
+        # Leave this out on a unit with Restart=always: the host detects that
+        # the unit starts it again on any exit and uses the self-exit path.
+        allowRestart: true       # force the detached-helper path anyway
+        selfExitDelayMs: 1500
 ```
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `allowRestart` | `boolean` | `false` under a detected systemd supervisor, `true` otherwise | Whether a restart is permitted where supervision was detected. Only set this where the unit is known to survive it (`KillMode=process`, or a supervisor that restarts the unit). |
+| `allowRestart` | `boolean` | unset — decided per host | `false` refuses a restart outright; `true` forces the detached-helper path. Left unset, the host decides: no supervisor → helper; a detected supervisor whose unit has `Restart=always` → self-exit; any other supervised shape → refuse. Only set `true` where the unit is known to survive a detached helper (`KillMode=process`). |
+| `selfExitDelayMs` | `number` | `1500` | Milliseconds between the `202` answer and the self-exit signal, so the browser receives the receipt before the socket goes away. Used only on the self-exit path. |
 
 ## HTTP API
 
@@ -139,14 +148,25 @@ spawned:
 | Socket peer that is not `127.0.0.1`, `::1` or `::ffff:127.0.0.1` | `403` |
 | Any forwarding header (`forwarded`, `x-forwarded-for`, `x-real-ip`) | `403` |
 | Missing `Origin`, or an `Origin` whose host is not `Host` | `403` |
-| systemd supervisor detected and `allowRestart` not `true` | `403` |
+| `allowRestart: false` | `403` |
+| systemd supervisor detected, the unit's `Restart=` is not `always`, and `allowRestart` is not `true` | `403` |
 | Debugger detected in `process.execArgv` | `403` |
 | A restart is already scheduled | `409` |
 
 ```jsonc
-// 202 Accepted
+// 202 Accepted — "self-exit": the unit starts the replacement itself
 {
   "ok": true,
+  "mode": "self-exit",
+  "pid": 12345,                // the host that is stepping aside
+  "unit": "dsh-web.service",   // the unit that will start the replacement
+  "signalMs": 1500             // how long the answer had before the signal
+}
+
+// 202 Accepted — "helper": the detached helper brings the replacement up
+{
+  "ok": true,
+  "mode": "helper",
   "pid": 12345,          // the host that is stepping aside
   "helperPid": 12350,    // the detached helper
   "logOut": "/tmp/dsh-simple-restart-2026-09-15T10-00-00.out.log",
@@ -172,6 +192,10 @@ falls back to the `dsh` executable on `PATH` with the original arguments.
   possible wrapper.
 - **No port to wait for.** If `Host` carries no port, the helper simply waits
   1.5s before starting the replacement.
+- **Only `Restart=always` counts as a supervisor that restarts.** `on-failure`,
+  `on-abnormal` and `on-success` do not restart a process that exited cleanly —
+  which is what a signal produces — so those units are refused rather than left
+  dead.
 - **Environment is inherited**, including the current working directory.
 - **Diagnostics live in the temp directory** and are never cleaned up; they are
   small, and finding them is the point.
@@ -179,7 +203,8 @@ falls back to the `dsh` executable on `PATH` with the original arguments.
 ## Development
 
 ```
-lib/index.js        host half — route, guards, launch description, detached helper
+lib/index.js        host half — route, guards, supervisor decision table, launch
+                    description, detached helper
 lib/client.js       client bundle — one General-settings row
 cordis.patch.yml    the single host row this package contributes
 scripts/smoke.mjs   offline checks (no harness, no restart)
@@ -194,7 +219,8 @@ the host half to a stub context. **It never restarts anything.** It checks that
 the client half fills exactly one settings seat, that the host registers exactly
 one route, and that both halves agree on that route's path — a mismatch shows up
 in the browser as a row that always says "请求失败" while the host log stays
-empty.
+empty. It also runs the supervisor decision table offline: which restart a
+supervised host gets, and the shapes that are still refused.
 
 ## Repository notes
 

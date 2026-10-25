@@ -240,6 +240,86 @@ check('client and host agree on the route path', () => {
 	assert.equal(routes[0].path, hostPath[1], 'the registered route does not match the declared path')
 })
 
+/* ------------------------------------------------------------------ *
+ * 4. The supervisor decision table.
+ *
+ * These branches decide whether the button does anything at all on a
+ * supervised host — and which of the two restarts it uses. They are pure, so
+ * they are checked here without a harness, a unit, or a restart.
+ * ------------------------------------------------------------------ */
+check('the owning unit is read off a cgroup path', () => {
+	const cgroup = (path) => '0::' + path + '\n'
+	assert.deepEqual(
+		host.owningUnitFrom(cgroup('/user.slice/user-1000.slice/user@1000.service/app.slice/dsh-web.service')),
+		{ unit: 'dsh-web.service', userUnit: true },
+	)
+	assert.deepEqual(host.owningUnitFrom(cgroup('/system.slice/dsh.service')), { unit: 'dsh.service', userUnit: false })
+	// The user manager supervises nothing but itself, so reaching it means the walk left the owning unit.
+	assert.equal(host.owningUnitFrom(cgroup('/user.slice/user-1000.slice/user@1000.service')), null)
+	// A transient scope (systemd-run --user --scope) has no owning unit either.
+	assert.equal(host.owningUnitFrom(cgroup('/user.slice/user-1000.slice/user@1000.service/app.slice/run-abc.scope')), null)
+	// A scope nested under a service still belongs to that service.
+	assert.deepEqual(
+		host.owningUnitFrom(cgroup('/user.slice/user-1000.slice/user@1000.service/app.slice/dsh-web.service/landlock-1.scope')),
+		{ unit: 'dsh-web.service', userUnit: true },
+	)
+	assert.equal(host.owningUnitFrom(''), null)
+})
+
+check('Restart=always under a supervisor becomes a self-exit', () => {
+	const plan = host.planRestart({
+		supervisor: 'systemd',
+		owner: { unit: 'dsh-web.service', userUnit: true },
+		restartPolicy: 'always',
+	})
+	assert.equal(plan.mode, 'self-exit', 'a unit that restarts on any exit needs no helper')
+	assert.equal(plan.unit, 'dsh-web.service', 'the report must name the unit that takes over')
+})
+
+check('a supervisor that does not restart a clean exit is still refused', () => {
+	for (const restartPolicy of ['on-failure', 'on-abnormal', 'on-success', 'no', null]) {
+		const plan = host.planRestart({
+			supervisor: 'systemd',
+			owner: { unit: 'dsh-web.service', userUnit: true },
+			restartPolicy,
+		})
+		assert.equal(plan.mode, 'refused', 'Restart=' + String(restartPolicy) + ' does not cover a signal exit')
+		assert.match(plan.reason, /allowRestart: true/)
+	}
+})
+
+check('a supervisor with no owning unit is refused, not guessed at', () => {
+	const plan = host.planRestart({ supervisor: 'systemd', owner: null, restartPolicy: null })
+	assert.equal(plan.mode, 'refused')
+	assert.match(plan.reason, /owning unit/)
+})
+
+check('no supervisor, or an explicit allowRestart, keeps the helper', () => {
+	assert.equal(host.planRestart({ supervisor: null, owner: null, restartPolicy: null }).mode, 'helper')
+	assert.equal(
+		host.planRestart({
+			supervisor: 'systemd',
+			owner: { unit: 'dsh-web.service', userUnit: true },
+			restartPolicy: 'on-failure',
+			allowRestart: true,
+		}).mode,
+		'helper',
+	)
+})
+
+check('allowRestart: false still refuses everywhere', () => {
+	assert.equal(host.planRestart({ supervisor: null, owner: null, restartPolicy: null, allowRestart: false }).mode, 'refused')
+	assert.equal(
+		host.planRestart({
+			supervisor: 'systemd',
+			owner: { unit: 'dsh-web.service', userUnit: true },
+			restartPolicy: 'always',
+			allowRestart: false,
+		}).mode,
+		'refused',
+	)
+})
+
 if (failures.length > 0) {
 	console.error('\n' + failures.length + ' check(s) failed')
 	process.exit(1)

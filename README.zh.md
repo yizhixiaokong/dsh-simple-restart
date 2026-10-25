@@ -27,10 +27,14 @@
 ## 它做什么
 
 1. 该行向本包自己的宿主路由请求重启（第二次点击确认；已武装状态 5 秒后过期）。
-2. 宿主检查自身的安全规则，然后拉起一个**分离（detached）的 helper**，并把确切的
-   启动调用交给他——可执行文件、argv、工作目录。
-3. helper 等待监听端口空闲，启动替代进程，然后用最多 20 秒确认它已绑定该端口。
-4. 宿主在交接 500ms 后退出。浏览器页面会短暂断开，并在新进程就绪后自行恢复。
+2. 宿主检查自身的安全规则，然后二选一决定这次重启怎么走。
+3. **unit 会在任意退出后重启自己**（`Restart=always`）：这次重启**就是**退出。宿主回
+   `202`，等 `selfExitDelayMs`，然后给自己发信号，由 unit 拉起替代进程。全程没有分离
+   进程参与，所以 `KillMode=control-group` 没有东西可杀，也不需要任何权限。
+4. **其余情况**：宿主拉起一个**分离（detached）的 helper**，并把确切的启动调用交给
+   他——可执行文件、argv、工作目录。helper 等待监听端口空闲，启动替代进程，然后用最多
+   20 秒确认它已绑定该端口。宿主在交接 500ms 后退出。
+5. 两种方式殊途同归：浏览器页面短暂断开，并在新进程就绪后自行恢复。
 
 如果交接之后出现任何问题，helper 会把诊断写入
 `$TMPDIR/dsh-simple-restart-<timestamp>.err.log`（替代进程自身的 stdout/stderr 写到旁边的
@@ -52,7 +56,7 @@
 | --- | --- |
 | DSH，web profile | 路由由 `webServer` 提供；设置行是客户端侧的座位。 |
 | 同源 loopback 调用方 | 路由拒绝其他一切来源（见下文）。 |
-| 未被 systemd 监管——或设置 `allowRestart: true` | systemd 默认的 `KillMode=control-group` 会把 helper 连同 unit 一起杀掉，那样的重启之后什么都不会剩下。 |
+| 未被 systemd 监管——或该 unit 会在任意退出后重启——或设置 `allowRestart: true` | systemd 默认的 `KillMode=control-group` 会把分离的 helper 连同 unit 一起杀掉，那样的重启之后什么都不会剩下。受监管时仍有两种可用形态：unit 带 `Restart=always`（重启即退出），以及为「能承受 helper」的 unit（`KillMode=process`）显式设 `allowRestart: true`。 |
 | 不处于调试器下 | 附着在本进程上的调试器无法跟随一次不带 `exec` 的重启。 |
 
 ## 安装
@@ -109,12 +113,16 @@ dsh plugin --profile web remove dsh-simple-restart
     - id: simple-restart
       name: dsh-simple-restart
       config:
-        allowRestart: true   # 即使检测到 systemd 监管也允许重启
+        # unit 带 Restart=always 时可以不写：宿主会识别出「它会在任意退出后把进程
+        # 拉起来」，从而走 self-exit 路径。
+        allowRestart: true       # 显式强制走分离 helper 路径
+        selfExitDelayMs: 1500
 ```
 
 | 键 | 类型 | 默认 | 含义 |
 | --- | --- | --- | --- |
-| `allowRestart` | `boolean` | 检测到 systemd 监管时为 `false`，否则为 `true` | 在已检测到监管的情况下是否允许重启。仅当确认该 unit 能承受时（`KillMode=process`，或有会重启该 unit 的监管者）才设置。 |
+| `allowRestart` | `boolean` | 未设置——由宿主逐机判定 | `false` 直接拒绝重启；`true` 强制走分离 helper 路径。不设置时由宿主判定：无监管 → helper；检测到监管且 unit 的 `Restart=always` → self-exit；其余受监管形态 → 拒绝。仅在确认该 unit 能承受分离 helper 时（`KillMode=process`）才设 `true`。 |
+| `selfExitDelayMs` | `number` | `1500` | `202` 回执与自我退出信号之间的毫秒数，让浏览器先收到回执。仅在 self-exit 路径上使用。 |
 
 ## HTTP 接口
 
@@ -126,14 +134,25 @@ dsh plugin --profile web remove dsh-simple-restart
 | socket 对端不是 `127.0.0.1`、`::1` 或 `::ffff:127.0.0.1` | `403` |
 | 携带任何转发头（`forwarded`、`x-forwarded-for`、`x-real-ip`） | `403` |
 | 缺少 `Origin`，或 `Origin` 的 host 不等于 `Host` | `403` |
-| 检测到 systemd 监管且 `allowRestart` 不为 `true` | `403` |
+| `allowRestart: false` | `403` |
+| 检测到 systemd 监管、unit 的 `Restart=` 不是 `always`、且 `allowRestart` 不为 `true` | `403` |
 | 在 `process.execArgv` 中检测到调试器 | `403` |
 | 已有重启排程 | `409` |
 
 ```jsonc
-// 202 Accepted
+// 202 Accepted —— "self-exit"：由 unit 自己拉起替代进程
 {
   "ok": true,
+  "mode": "self-exit",
+  "pid": 12345,                // 正在让位的宿主
+  "unit": "dsh-web.service",   // 将拉起替代进程的 unit
+  "signalMs": 1500             // 回执发出到信号之间的等待
+}
+
+// 202 Accepted —— "helper"：由分离的 helper 拉起替代进程
+{
+  "ok": true,
+  "mode": "helper",
   "pid": 12345,          // 正在让位的宿主
   "helperPid": 12350,    // 分离的 helper
   "logOut": "/tmp/dsh-simple-restart-2026-09-15T10-00-00.out.log",
@@ -155,13 +174,16 @@ helper 以 `node -e <program>` 形式拉起，`detached` 且 `stdio: "ignore"`�
   进程（shell 函数、容器 entrypoint），重启会退化为用相同 argv 运行 `dsh`——这对
   `dsh web` 是正确的，但不是对所有可能的包装方式都成立。
 - **没有端口可等。** 如果 `Host` 中不含端口，helper 只等待 1.5 秒就启动替代进程。
+- **只有 `Restart=always` 才算「会重启的监管者」。** `on-failure`、`on-abnormal`、
+  `on-success` 都不会重启一个干净退出的进程——而信号产生的正是干净退出——这些 unit
+  仍会被拒绝，而不是被留成死进程。
 - **环境变量按原样继承**，包括当前工作目录。
 - **诊断日志留在临时目录**，不会被清理；它们很小，而能找到它们正是重点。
 
 ## 开发
 
 ```
-lib/index.js        宿主部分——路由、守卫、启动描述、分离 helper
+lib/index.js        宿主部分——路由、守卫、监管者判定表、启动描述、分离 helper
 lib/client.js       客户端产物——一行“通用”设置
 cordis.patch.yml    本包贡献的那一行宿主配置
 scripts/smoke.mjs   离线检查（不需要 Harness，也不会真的重启）
@@ -174,6 +196,7 @@ npm test          # node scripts/smoke.mjs
 冒烟测试会用桩全局变量物化客户端产物，并把宿主部分应用到桩上下文。**它从不重启任何
 东西。** 它检查客户端只填充一个设置座位、宿主只注册一条路由，且两半对路由路径的
 认知一致——不一致在浏览器里的表现是这一行永远显示“请求失败”，而宿主日志一片空白。
+它还会离线跑一遍监管者判定表：受监管的宿主拿到哪种重启，以及哪些形态仍被拒绝。
 
 ## 仓库说明
 

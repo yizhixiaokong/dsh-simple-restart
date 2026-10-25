@@ -4,6 +4,28 @@ All notable changes to this package are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- A supervised host can now be restarted when its unit starts the process again
+  on any exit (`Restart=always`). The row answers `202` with
+  `mode: "self-exit"`, waits `selfExitDelayMs` (1500ms) and signals itself; the
+  unit starts the replacement. Nothing is spawned detached, so
+  `KillMode=control-group` — the reason a supervised host used to be refused
+  outright — has nothing to kill, and no privileges are involved.
+- `selfExitDelayMs` config key.
+- `owningUnitFrom()` and `planRestart()`, exported so the decision table is
+  covered offline in `scripts/smoke.mjs`.
+
+### Changed
+
+- "systemd detected" is no longer a flat refusal: the route reads the owning
+  unit's `Restart=` policy and refuses only where that policy does not cover a
+  clean exit (which is what a signal produces). `allowRestart: true` still
+  forces the detached-helper path, `false` still refuses, and the `202` body now
+  carries `mode` (plus `unit` and `signalMs` on the self-exit path).
+
 ## [0.1.1] — 2026-09-28
 
 ### Changed
