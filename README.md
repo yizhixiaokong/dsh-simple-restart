@@ -77,7 +77,7 @@ Straight from GitHub — nothing to clone (pin a tag if you want a fixed release
 
 ```sh
 dsh plugin --profile web add "github:yizhixiaokong/dsh-simple-restart"
-# pinned: dsh plugin --profile web add "github:yizhixiaokong/dsh-simple-restart#v0.1.1"
+# pinned: dsh plugin --profile web add "github:yizhixiaokong/dsh-simple-restart#v0.1.2"
 ```
 
 From a clone, when you want to edit the code:
@@ -229,7 +229,7 @@ supervised host gets, and the shapes that are still refused.
 
 ## Repository notes
 
-Versions are tagged to match `package.json` — this tree is `v0.1.1`.
+Versions are tagged to match `package.json` — this tree is `v0.1.2`.
 
 The `yizhixiaokong` placeholder in `package.json`, `CHANGELOG.md`, the badges and the
 install commands above stands for the GitHub account this repository is pushed

@@ -1,6 +1,6 @@
 {
   "name": "dsh-simple-restart",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "DeepSeek Harness plugin: restart the running `dsh web` process from a General settings row, without the market plugin.",
   "keywords": [
     "dsh",
