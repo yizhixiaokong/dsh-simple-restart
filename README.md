@@ -36,6 +36,9 @@ stepping aside and the helper's pid.
    exit. The host answers `202`, waits `selfExitDelayMs`, and signals itself;
    the unit starts the replacement. Nothing is spawned detached, so
    `KillMode=control-group` has nothing to kill and no privileges are involved.
+   Taken only when this process is the unit's `MainPID` — the process systemd
+   restarts — and `RestartPreventExitStatus=` does not list `SIGTERM`, since
+   that property overrides `Restart=` and the exit would leave nothing running.
 4. **Otherwise**, the host spawns a **detached helper** and hands it the exact
    boot invocation — executable, argv, working directory. The helper waits until
    the listening port is free, starts the replacement, and watches for up to 20s
@@ -65,7 +68,7 @@ would itself hold the port at the exact moment the replacement needs it.
 | --- | --- |
 | DSH, web profile | The route is served by `webServer`; the settings row is a client-half slot. |
 | Same-origin loopback caller | The route refuses anything else (see below). |
-| Not supervised by systemd — or the unit restarts on any exit — or `allowRestart: true` | Under systemd's default `KillMode=control-group` a detached helper dies with the unit, so a restart there would leave nothing running. Two supervised shapes still work: a unit with `Restart=always`, where the restart becomes the exit itself, and an explicit `allowRestart: true` for a unit configured to survive the helper (`KillMode=process`). |
+| Not supervised by systemd — or the unit restarts on any exit — or `allowRestart: true` | Under systemd's default `KillMode=control-group` a detached helper dies with the unit, so a restart there would leave nothing running. Two supervised shapes still work: a unit with `Restart=always`, where the restart becomes the exit itself (only when this process is the unit's `MainPID` and `RestartPreventExitStatus=` does not cover `SIGTERM`), and an explicit `allowRestart: true` for a unit configured to survive the helper (`KillMode=process`). |
 | Not under a debugger | A debugger attached to this process cannot follow it across an `exec`-less restart. |
 
 ## Install
@@ -134,7 +137,7 @@ The row's config is passed to the host `apply`:
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `allowRestart` | `boolean` | unset — decided per host | `false` refuses a restart outright; `true` forces the detached-helper path. Left unset, the host decides: no supervisor → helper; a detected supervisor whose unit has `Restart=always` → self-exit; any other supervised shape → refuse. Only set `true` where the unit is known to survive a detached helper (`KillMode=process`). |
+| `allowRestart` | `boolean` | unset — decided per host | `false` refuses a restart outright; `true` forces the detached-helper path. Left unset, the host decides: no supervisor → helper; a detected supervisor whose unit has `Restart=always`, runs this process as its `MainPID`, and does not prevent a `SIGTERM` exit → self-exit; any other supervised shape → refuse. Only set `true` where the unit is known to survive a detached helper (`KillMode=process`). |
 | `selfExitDelayMs` | `number` | `1500` | Milliseconds between the `202` answer and the self-exit signal, so the browser receives the receipt before the socket goes away. Used only on the self-exit path. |
 
 ## HTTP API
@@ -149,7 +152,7 @@ spawned:
 | Any forwarding header (`forwarded`, `x-forwarded-for`, `x-real-ip`) | `403` |
 | Missing `Origin`, or an `Origin` whose host is not `Host` | `403` |
 | `allowRestart: false` | `403` |
-| systemd supervisor detected, the unit's `Restart=` is not `always`, and `allowRestart` is not `true` | `403` |
+| systemd supervisor detected, and the unit either does not restart a `SIGTERM` exit (`Restart=` is not `always`, or `RestartPreventExitStatus=` covers `SIGTERM`) or does not run this process as its `MainPID`; overridden by `allowRestart: true` | `403` |
 | Debugger detected in `process.execArgv` | `403` |
 | A restart is already scheduled | `409` |
 
@@ -195,7 +198,9 @@ falls back to the `dsh` executable on `PATH` with the original arguments.
 - **Only `Restart=always` counts as a supervisor that restarts.** `on-failure`,
   `on-abnormal` and `on-success` do not restart a process that exited cleanly —
   which is what a signal produces — so those units are refused rather than left
-  dead.
+  dead. `RestartPreventExitStatus=` overrides `Restart=`, so a unit that lists
+  `SIGTERM` there is refused too, and the self-exit is only taken when this
+  process is the unit's `MainPID`: systemd restarts that process, not a child.
 - **Environment is inherited**, including the current working directory.
 - **Diagnostics live in the temp directory** and are never cleaned up; they are
   small, and finding them is the point.

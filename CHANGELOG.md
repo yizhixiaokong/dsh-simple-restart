@@ -15,16 +15,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `KillMode=control-group` — the reason a supervised host used to be refused
   outright — has nothing to kill, and no privileges are involved.
 - `selfExitDelayMs` config key.
-- `owningUnitFrom()` and `planRestart()`, exported so the decision table is
-  covered offline in `scripts/smoke.mjs`.
+- `owningUnitFrom()`, `planRestart()` and `preventsSignalRestart()`, exported so
+  the decision table is covered offline in `scripts/smoke.mjs`.
 
 ### Changed
 
 - "systemd detected" is no longer a flat refusal: the route reads the owning
   unit's `Restart=` policy and refuses only where that policy does not cover a
-  clean exit (which is what a signal produces). `allowRestart: true` still
-  forces the detached-helper path, `false` still refuses, and the `202` body now
-  carries `mode` (plus `unit` and `signalMs` on the self-exit path).
+  clean exit (which is what a signal produces). The self-exit is taken only when
+  this process is the unit's `MainPID` — the process systemd restarts — and
+  `RestartPreventExitStatus=` does not list `SIGTERM`, since that property
+  overrides `Restart=`. `allowRestart: true` still forces the detached-helper
+  path, `false` still refuses, and the `202` body now carries `mode` (plus
+  `unit` and `signalMs` on the self-exit path).
+- The settings row reports a self-exit by its unit and delay, instead of showing
+  the helper fields, which a self-exit does not have.
 
 ## [0.1.1] — 2026-09-28
 

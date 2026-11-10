@@ -30,7 +30,10 @@
 2. 宿主检查自身的安全规则，然后二选一决定这次重启怎么走。
 3. **unit 会在任意退出后重启自己**（`Restart=always`）：这次重启**就是**退出。宿主回
    `202`，等 `selfExitDelayMs`，然后给自己发信号，由 unit 拉起替代进程。全程没有分离
-   进程参与，所以 `KillMode=control-group` 没有东西可杀，也不需要任何权限。
+   进程参与，所以 `KillMode=control-group` 没有东西可杀，也不需要任何权限。只有本进程
+   是该 unit 的 `MainPID`（systemd 重启的那个进程）、且 `RestartPreventExitStatus=`
+   未包含 `SIGTERM` 时才走这条路径——该属性会覆盖 `Restart=`，那样退出后什么都不会被
+   拉起。
 4. **其余情况**：宿主拉起一个**分离（detached）的 helper**，并把确切的启动调用交给
    他——可执行文件、argv、工作目录。helper 等待监听端口空闲，启动替代进程，然后用最多
    20 秒确认它已绑定该端口。宿主在交接 500ms 后退出。
@@ -56,7 +59,7 @@
 | --- | --- |
 | DSH，web profile | 路由由 `webServer` 提供；设置行是客户端侧的座位。 |
 | 同源 loopback 调用方 | 路由拒绝其他一切来源（见下文）。 |
-| 未被 systemd 监管——或该 unit 会在任意退出后重启——或设置 `allowRestart: true` | systemd 默认的 `KillMode=control-group` 会把分离的 helper 连同 unit 一起杀掉，那样的重启之后什么都不会剩下。受监管时仍有两种可用形态：unit 带 `Restart=always`（重启即退出），以及为「能承受 helper」的 unit（`KillMode=process`）显式设 `allowRestart: true`。 |
+| 未被 systemd 监管——或该 unit 会在任意退出后重启——或设置 `allowRestart: true` | systemd 默认的 `KillMode=control-group` 会把分离的 helper 连同 unit 一起杀掉，那样的重启之后什么都不会剩下。受监管时仍有两种可用形态：unit 带 `Restart=always`（重启即退出，且要求本进程是该 unit 的 `MainPID`、`RestartPreventExitStatus=` 未覆盖 `SIGTERM`），以及为「能承受 helper」的 unit（`KillMode=process`）显式设 `allowRestart: true`。 |
 | 不处于调试器下 | 附着在本进程上的调试器无法跟随一次不带 `exec` 的重启。 |
 
 ## 安装
@@ -121,7 +124,7 @@ dsh plugin --profile web remove dsh-simple-restart
 
 | 键 | 类型 | 默认 | 含义 |
 | --- | --- | --- | --- |
-| `allowRestart` | `boolean` | 未设置——由宿主逐机判定 | `false` 直接拒绝重启；`true` 强制走分离 helper 路径。不设置时由宿主判定：无监管 → helper；检测到监管且 unit 的 `Restart=always` → self-exit；其余受监管形态 → 拒绝。仅在确认该 unit 能承受分离 helper 时（`KillMode=process`）才设 `true`。 |
+| `allowRestart` | `boolean` | 未设置——由宿主逐机判定 | `false` 直接拒绝重启；`true` 强制走分离 helper 路径。不设置时由宿主判定：无监管 → helper；检测到监管且 unit 的 `Restart=always`、本进程是其 `MainPID`、`RestartPreventExitStatus=` 未覆盖 `SIGTERM` → self-exit；其余受监管形态 → 拒绝。仅在确认该 unit 能承受分离 helper 时（`KillMode=process`）才设 `true`。 |
 | `selfExitDelayMs` | `number` | `1500` | `202` 回执与自我退出信号之间的毫秒数，让浏览器先收到回执。仅在 self-exit 路径上使用。 |
 
 ## HTTP 接口
@@ -135,7 +138,7 @@ dsh plugin --profile web remove dsh-simple-restart
 | 携带任何转发头（`forwarded`、`x-forwarded-for`、`x-real-ip`） | `403` |
 | 缺少 `Origin`，或 `Origin` 的 host 不等于 `Host` | `403` |
 | `allowRestart: false` | `403` |
-| 检测到 systemd 监管、unit 的 `Restart=` 不是 `always`、且 `allowRestart` 不为 `true` | `403` |
+| 检测到 systemd 监管，且该 unit 要么不会重启一次 `SIGTERM` 退出（`Restart=` 不是 `always`，或 `RestartPreventExitStatus=` 覆盖了 `SIGTERM`），要么本进程不是它的 `MainPID`；`allowRestart: true` 可覆盖 | `403` |
 | 在 `process.execArgv` 中检测到调试器 | `403` |
 | 已有重启排程 | `409` |
 
@@ -176,7 +179,9 @@ helper 以 `node -e <program>` 形式拉起，`detached` 且 `stdio: "ignore"`�
 - **没有端口可等。** 如果 `Host` 中不含端口，helper 只等待 1.5 秒就启动替代进程。
 - **只有 `Restart=always` 才算「会重启的监管者」。** `on-failure`、`on-abnormal`、
   `on-success` 都不会重启一个干净退出的进程——而信号产生的正是干净退出——这些 unit
-  仍会被拒绝，而不是被留成死进程。
+  仍会被拒绝，而不是被留成死进程。`RestartPreventExitStatus=` 会覆盖 `Restart=`，因此
+  在该属性里列出 `SIGTERM` 的 unit 也会被拒绝；self-exit 还要求本进程是该 unit 的
+  `MainPID`：systemd 重启的是那个进程，而不是它的子进程。
 - **环境变量按原样继承**，包括当前工作目录。
 - **诊断日志留在临时目录**，不会被清理；它们很小，而能找到它们正是重点。
 
